@@ -163,6 +163,12 @@ def index():
 # ------------------------------
 # 8. Run Flask with Port Management
 # ------------------------------
+from flask import Flask
+
+app = Flask(__name__)
+
+# your routes here...
+
 if __name__ == '__main__':
     try:
         print("🚀 Starting Flask app...")
