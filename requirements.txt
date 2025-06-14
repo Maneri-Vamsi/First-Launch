@@ -1,12 +1,13 @@
-# Build dependencies
---only-binary=:all:
-setuptools==65.5.1
-wheel==0.38.4
+# Remove --only-binary since it causes problems on Render
 
-# App dependencies
+# Build dependencies (latest versions)
+setuptools>=80.0.0
+wheel>=0.45.0
+
+# App dependencies compatible with Python 3.13
 Flask==2.2.5
 pandas==2.2.3
-numpy==1.23.5
-scikit-learn==1.2.2
+numpy==2.2.0
+scikit-learn==1.4.2
 nltk==3.8.1
-gunicorn==20.1.0
+gunicorn==21.2.0
