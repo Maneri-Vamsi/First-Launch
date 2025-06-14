@@ -1,4 +1,5 @@
-# Force older compatible versions
+# Build dependencies
+--only-binary=:all:
 setuptools==65.5.1
 wheel==0.38.4
 
