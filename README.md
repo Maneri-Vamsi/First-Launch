@@ -13,4 +13,4 @@ Basic Flask app that classifies news articles using machine learning.
 - PyTorch neural network classifier
 
 ## Live Demo
-[View on Render](https://your-app-name.onrender.com)
+[View on Render](https://first-launch.onrender.com)
