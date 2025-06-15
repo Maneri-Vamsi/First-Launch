@@ -1,10 +1,16 @@
 # Fake News Detector
 
-Basic Flask app that classifies news articles.
+Basic Flask app that classifies news articles using machine learning.
 
 ## Usage
-1. Paste article text
-2. Get real/fake prediction
+1. Paste article text in the box
+2. Click "Analyze" button
+3. View prediction (Real/Fake) with confidence percentage
+
+## Technical Details
+- Python + Flask backend
+- TF-IDF for text processing
+- PyTorch neural network classifier
 
 ## Live Demo
-[View on Render](your-render-url-here)
+[View on Render](https://your-app-name.onrender.com)
