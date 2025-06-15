@@ -1,6 +1,7 @@
 flask==2.0.1
 scikit-learn==1.0.2
-torch==1.10.0+cpu  # CPU-only version for Render
+torch==1.10.0+cpu  # Must have "+cpu" for Render
 pandas==1.3.0
 nltk==3.6.2
 joblib==1.0.1
+gunicorn==20.1.0  # Required for Render
