@@ -1,7 +1,2 @@
-services:
-  - type: web
-    name: fake_news_app
-    env: python
-    buildCommand: pip install --upgrade pip setuptools wheel && pip install -r requirements.txt
-    startCommand: gunicorn fake_news_app:app
-    pythonVersion: 3.10.13
+build:
+  pythonVersion: 3.11.8
