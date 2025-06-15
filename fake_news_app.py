@@ -13,69 +13,71 @@ import nltk
 from nltk.corpus import stopwords
 
 # ------------------------------
-# 1. Download NLTK Requirements
+# 1. Initial Setup with Error Handling
 # ------------------------------
-nltk.download('stopwords')
-nltk.download('wordnet')
+app = Flask(__name__)
+
+# Configure paths
+MODEL_PATH = "model.pt"
+DATA_FILES = ['Fake.csv', 'True.csv']
+
+# ------------------------------
+# 2. NLTK Setup with Cache Check
+# ------------------------------
+try:
+    nltk.data.find('corpora/stopwords')
+    nltk.data.find('corpora/wordnet')
+except LookupError:
+    print("Downloading NLTK data...")
+    nltk.download('stopwords')
+    nltk.download('wordnet')
+
 stop_words = set(stopwords.words('english'))
 
 # ------------------------------
-# 2. Extract the ZIP File
+# 3. Memory-Efficient Data Loading
 # ------------------------------
-zip_path = 'Fake.csv.zip'
-extract_folder = '.'
-fake_csv_filename = "Fake.csv"
-fake_csv_path = os.path.join(extract_folder, fake_csv_filename)
+def load_data():
+    """Load and combine datasets with memory efficiency"""
+    dfs = []
+    for filename, label in zip(DATA_FILES, [0, 1]):
+        if os.path.exists(filename):
+            # Only load the text column to save memory
+            df = pd.read_csv(filename, usecols=['text'])
+            df['label'] = label
+            dfs.append(df)
+    
+    if not dfs:
+        raise FileNotFoundError("No data files found")
+    
+    return pd.concat(dfs, ignore_index=True)
 
-if not os.path.exists(fake_csv_path):
-    with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-        zip_ref.extractall(extract_folder)
-    print(f"✅ Extracted {zip_path}")
-else:
-    print(f"📄 {fake_csv_filename} already exists. Skipping extraction.")
-
-# ------------------------------
-# 3. Load and Prepare Dataset
-# ------------------------------
-df_fake = pd.read_csv(fake_csv_path)
-df_fake['label'] = 0  # Fake = 0
-
-true_csv_path = os.path.join(extract_folder, "True.csv")
-if os.path.exists(true_csv_path):
-    df_real = pd.read_csv(true_csv_path)
-    df_real['label'] = 1  # Real = 1
-    df = pd.concat([df_fake, df_real], ignore_index=True)
-    print("✅ Combined Fake & True datasets.")
-else:
-    df = df_fake
-    print("⚠️ True.csv not found. Using Fake.csv only.")
+def extract_if_needed():
+    """Extract zip file if data files don't exist"""
+    if not all(os.path.exists(f) for f in DATA_FILES):
+        zip_path = 'Fake.csv.zip'
+        if os.path.exists(zip_path):
+            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                zip_ref.extractall('.')
+            print("✅ Extracted data files")
+        else:
+            raise FileNotFoundError("No data files or zip archive found")
 
 # ------------------------------
-# 4. Clean the Text
+# 4. Text Cleaning Function
 # ------------------------------
 def clean_text(text):
-    text = re.sub(r'[^a-zA-Z]', ' ', str(text))
+    """Clean and preprocess text"""
+    if not isinstance(text, str):
+        return ""
+    
+    text = re.sub(r'[^a-zA-Z]', ' ', text)
     tokens = text.lower().split()
     tokens = [word for word in tokens if word not in stop_words]
     return ' '.join(tokens)
 
-df['text'] = df['text'].apply(clean_text)
-
 # ------------------------------
-# 5. Vectorization
-# ------------------------------
-X_train, X_test, y_train, y_test = train_test_split(df['text'], df['label'], test_size=0.2, random_state=42)
-vectorizer = TfidfVectorizer(max_features=5000)
-X_train_tfidf = vectorizer.fit_transform(X_train).toarray()
-X_test_tfidf = vectorizer.transform(X_test).toarray()
-
-X_train_tensor = torch.tensor(X_train_tfidf, dtype=torch.float32)
-y_train_tensor = torch.tensor(y_train.values, dtype=torch.long)
-X_test_tensor = torch.tensor(X_test_tfidf, dtype=torch.float32)
-y_test_tensor = torch.tensor(y_test.values, dtype=torch.long)
-
-# ------------------------------
-# 6. Define and Train Model
+# 5. Model Definition
 # ------------------------------
 class NewsClassifier(nn.Module):
     def __init__(self, input_dim):
@@ -83,77 +85,141 @@ class NewsClassifier(nn.Module):
         self.fc1 = nn.Linear(input_dim, 100)
         self.relu = nn.ReLU()
         self.fc2 = nn.Linear(100, 2)
+        self.softmax = nn.Softmax(dim=1)
 
     def forward(self, x):
         out = self.relu(self.fc1(x))
-        return self.fc2(out)
-
-model = NewsClassifier(input_dim=5000)
-criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(model.parameters(), lr=0.001)
-
-print("🏋️ Training model...")
-for epoch in range(5):
-    model.train()
-    outputs = model(X_train_tensor)
-    loss = criterion(outputs, y_train_tensor)
-    optimizer.zero_grad()
-    loss.backward()
-    optimizer.step()
-    print(f"Epoch {epoch+1}/5 | Loss: {loss.item():.4f}")
+        return self.softmax(self.fc2(out))
 
 # ------------------------------
-# 7. Flask Web App
+# 6. Initialize Vectorizer and Model
 # ------------------------------
-app = Flask(__name__)
+vectorizer = TfidfVectorizer(max_features=1000)  # Reduced from 5000 to save memory
+model = None
 
-html_template = """
+def initialize_model():
+    """Initialize or load the trained model"""
+    global model, vectorizer
+    
+    # Check if we have a trained model
+    if os.path.exists(MODEL_PATH):
+        print("🚀 Loading pre-trained model...")
+        model = NewsClassifier(input_dim=1000)
+        model.load_state_dict(torch.load(MODEL_PATH))
+        model.eval()
+        return
+    
+    print("⏳ Training new model...")
+    
+    # Load and prepare data
+    extract_if_needed()
+    df = load_data()
+    df['text'] = df['text'].apply(clean_text)
+    
+    # Train-test split and vectorization
+    X_train, _, y_train, _ = train_test_split(
+        df['text'], df['label'], 
+        test_size=0.2, 
+        random_state=42
+    )
+    
+    X_train_tfidf = vectorizer.fit_transform(X_train).toarray()
+    X_train_tensor = torch.tensor(X_train_tfidf, dtype=torch.float32)
+    y_train_tensor = torch.tensor(y_train.values, dtype=torch.long)
+    
+    # Model training
+    model = NewsClassifier(input_dim=1000)
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.Adam(model.parameters(), lr=0.001)
+    
+    # Train for fewer epochs to save memory
+    for epoch in range(3):
+        model.train()
+        outputs = model(X_train_tensor)
+        loss = criterion(outputs, y_train_tensor)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        print(f"Epoch {epoch+1}/3 | Loss: {loss.item():.4f}")
+    
+    # Save the trained model
+    torch.save(model.state_dict(), MODEL_PATH)
+    print("✅ Model trained and saved")
+
+# ------------------------------
+# 7. Prediction Function
+# ------------------------------
+def predict_article(article):
+    """Predict if article is fake or real"""
+    if model is None:
+        initialize_model()
+    
+    cleaned = clean_text(article)
+    vec = vectorizer.transform([cleaned]).toarray()
+    tensor_input = torch.tensor(vec, dtype=torch.float32)
+    
+    with torch.no_grad():
+        probs = model(tensor_input)
+        confidence, pred = torch.max(probs, dim=1)
+    
+    return ("Fake" if pred.item() == 0 else "Real", round(confidence.item() * 100, 2))
+
+# ------------------------------
+# 8. Flask Web App
+# ------------------------------
+HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html>
 <head>
     <title>📰 Fake News Detector</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        textarea { width: 100%; padding: 10px; }
+        input[type="submit"] { margin-top: 10px; padding: 10px 20px; }
+        .result { margin-top: 20px; padding: 15px; border-radius: 5px; }
+        .fake { background-color: #ffdddd; border-left: 5px solid #f44336; }
+        .real { background-color: #ddffdd; border-left: 5px solid #4CAF50; }
+    </style>
 </head>
 <body>
     <h1>🧠 Fake News Classifier</h1>
     <form method="POST">
-        <textarea name="article" rows="10" cols="60" placeholder="Paste news article here..."></textarea><br>
+        <textarea name="article" rows="10" placeholder="Paste news article here..."></textarea><br>
         <input type="submit" value="Predict">
     </form>
     {% if prediction %}
-        <h2>Prediction: {{ prediction }}</h2>
-        <p>Confidence: {{ confidence }}%</p>
+        <div class="result {{ prediction.lower() }}">
+            <h2>Prediction: {{ prediction }}</h2>
+            <p>Confidence: {{ confidence }}%</p>
+        </div>
     {% endif %}
 </body>
 </html>
 """
 
-def predict_article(article):
-    cleaned = clean_text(article)
-    vec = vectorizer.transform([cleaned]).toarray()
-    tensor_input = torch.tensor(vec, dtype=torch.float32)
-
-    model.eval()
-    with torch.no_grad():
-        output = model(tensor_input)
-        probs = torch.softmax(output, dim=1)
-        confidence, pred = torch.max(probs, dim=1)
-
-    return ("Fake" if pred.item() == 0 else "Real", round(confidence.item() * 100, 2))
-
 @app.route("/", methods=["GET", "POST"])
 def index():
     prediction, confidence = None, None
     if request.method == "POST":
-        article = request.form.get("article")
+        article = request.form.get("article", "").strip()
         if article:
-            prediction, confidence = predict_article(article)
-    return render_template_string(html_template, prediction=prediction, confidence=confidence)
+            try:
+                prediction, confidence = predict_article(article)
+            except Exception as e:
+                prediction = f"Error: {str(e)}"
+                confidence = 0
+    return render_template_string(HTML_TEMPLATE, prediction=prediction, confidence=confidence)
 
 # ------------------------------
-# 8. Run the App
+# 9. Run the App (Render compatible)
 # ------------------------------
 if __name__ == '__main__':
-    print("🚀 Launching Fake News Detector on http://127.0.0.1:5000")
-    app.run(debug=True, port=5000)
-torch.save(model.state_dict(), "model.pt")
-
+    # Initialize model before first request
+    initialize_model()
+    
+    # Get port from environment variable or use default
+    port = int(os.environ.get("PORT", 5000))
+    
+    # Run the app
+    print(f"🚀 Launching Fake News Detector on port {port}")
+    app.run(host='0.0.0.0', port=port)
