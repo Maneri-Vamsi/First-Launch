@@ -5,3 +5,5 @@ pandas==1.3.0
 nltk==3.6.2
 joblib==1.0.1
 gunicorn==20.1.0  # Required for Render
+setuptools>=42
+wheel
