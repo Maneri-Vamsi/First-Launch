@@ -9,6 +9,7 @@ import torch.optim as optim
 from flask import Flask, request, render_template_string
 from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.externals import joblib  # NEW
 import nltk
 from nltk.corpus import stopwords
 
@@ -19,6 +20,7 @@ app = Flask(__name__)
 
 # Configure paths
 MODEL_PATH = "model.pt"
+VECTORIZER_PATH = "tfidf_vectorizer.pkl"  # NEW
 DATA_FILES = ['Fake.csv', 'True.csv']
 
 # ------------------------------
@@ -42,7 +44,6 @@ def load_data():
     dfs = []
     for filename, label in zip(DATA_FILES, [0, 1]):
         if os.path.exists(filename):
-            # Only load the text column to save memory
             df = pd.read_csv(filename, usecols=['text'])
             df['label'] = label
             dfs.append(df)
@@ -94,45 +95,47 @@ class NewsClassifier(nn.Module):
 # ------------------------------
 # 6. Initialize Vectorizer and Model
 # ------------------------------
-vectorizer = TfidfVectorizer(max_features=1000)  # Reduced from 5000 to save memory
+vectorizer = TfidfVectorizer(max_features=1000)
 model = None
 
 def initialize_model():
     """Initialize or load the trained model"""
     global model, vectorizer
     
-    # Check if we have a trained model
-    if os.path.exists(MODEL_PATH):
-        print("🚀 Loading pre-trained model...")
+    # Check if both model and vectorizer exist (NEW)
+    if os.path.exists(MODEL_PATH) and os.path.exists(VECTORIZER_PATH):
+        print("🚀 Loading pre-trained model and vectorizer...")
         model = NewsClassifier(input_dim=1000)
         model.load_state_dict(torch.load(MODEL_PATH))
         model.eval()
+        vectorizer = joblib.load(VECTORIZER_PATH)  # NEW: Load fitted vectorizer
         return
     
     print("⏳ Training new model...")
-    
-    # Load and prepare data
     extract_if_needed()
     df = load_data()
     df['text'] = df['text'].apply(clean_text)
     
-    # Train-test split and vectorization
     X_train, _, y_train, _ = train_test_split(
         df['text'], df['label'], 
         test_size=0.2, 
         random_state=42
     )
     
-    X_train_tfidf = vectorizer.fit_transform(X_train).toarray()
+    # NEW: Explicitly fit the vectorizer before transform
+    vectorizer.fit(X_train)  # This was missing!
+    X_train_tfidf = vectorizer.transform(X_train).toarray()
+    
+    # NEW: Save the fitted vectorizer
+    joblib.dump(vectorizer, VECTORIZER_PATH)
+    
     X_train_tensor = torch.tensor(X_train_tfidf, dtype=torch.float32)
     y_train_tensor = torch.tensor(y_train.values, dtype=torch.long)
     
-    # Model training
     model = NewsClassifier(input_dim=1000)
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=0.001)
     
-    # Train for fewer epochs to save memory
     for epoch in range(3):
         model.train()
         outputs = model(X_train_tensor)
@@ -142,12 +145,11 @@ def initialize_model():
         optimizer.step()
         print(f"Epoch {epoch+1}/3 | Loss: {loss.item():.4f}")
     
-    # Save the trained model
     torch.save(model.state_dict(), MODEL_PATH)
-    print("✅ Model trained and saved")
+    print("✅ Model and vectorizer saved")  # Updated message
 
 # ------------------------------
-# 7. Prediction Function
+# 7. Prediction Function (No changes needed here)
 # ------------------------------
 def predict_article(article):
     """Predict if article is fake or real"""
@@ -165,7 +167,7 @@ def predict_article(article):
     return ("Fake" if pred.item() == 0 else "Real", round(confidence.item() * 100, 2))
 
 # ------------------------------
-# 8. Flask Web App
+# 8. Flask Web App (No changes needed here)
 # ------------------------------
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -211,15 +213,10 @@ def index():
     return render_template_string(HTML_TEMPLATE, prediction=prediction, confidence=confidence)
 
 # ------------------------------
-# 9. Run the App (Render compatible)
+# 9. Run the App
 # ------------------------------
 if __name__ == '__main__':
-    # Initialize model before first request
-    initialize_model()
-    
-    # Get port from environment variable or use default
+    initialize_model()  # Ensures model and vectorizer are loaded
     port = int(os.environ.get("PORT", 5000))
-    
-    # Run the app
     print(f"🚀 Launching Fake News Detector on port {port}")
     app.run(host='0.0.0.0', port=port)
