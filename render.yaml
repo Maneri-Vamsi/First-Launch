@@ -1,6 +1,3 @@
-services:
-  - type: web
-    name: fake-news-detector
-    runtime: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: python fake_news_app.py
+build:
+  environment:
+    python_version: 3.10
