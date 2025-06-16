@@ -1,11 +1,10 @@
-# Build tools
 setuptools==65.5.1
 wheel==0.38.4
 
 # App and data processing
 Flask==2.2.5
-pandas==1.3.0
-numpy==1.21.0
+pandas==1.5.3  # Oldest available on PyPI (works with your stack)
+numpy==1.21.6  # Required for scikit-learn 1.0.2 compatibility
 
 # ML libraries
 scikit-learn==1.0.2
@@ -14,6 +13,6 @@ nltk==3.6.2
 # Model serving
 gunicorn==20.1.0
 
-# PyTorch (for CPU only)
+# PyTorch (CPU only)
 --extra-index-url https://download.pytorch.org/whl/cpu
 torch==1.10.0
