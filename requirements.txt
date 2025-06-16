@@ -5,7 +5,8 @@ wheel==0.38.4
 # App and data processing
 flask==2.0.1
 pandas==2.2.3
-numpy==1.23.5
+numpy==2.2.0
+
 
 
 # ML libraries
