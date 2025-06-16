@@ -34,8 +34,9 @@ CONFIG = {
 # ======================
 # 2. NLP SETUP
 # ======================
-nltk.download('stopwords', quiet=True)
-nltk.download('wordnet', quiet=True)
+nltk.data.path.append("/tmp")
+nltk.download('stopwords', download_dir='/tmp', quiet=True)
+nltk.download('wordnet', download_dir='/tmp', quiet=True)
 stop_words = set(stopwords.words('english'))
 lemmatizer = WordNetLemmatizer()
 
