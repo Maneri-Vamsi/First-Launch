@@ -1,16 +1,9 @@
---upgrade pip setuptools wheel
 setuptools==68.0.0
 wheel==0.41.2
-
-# Core dependencies
 flask==2.0.1
 pandas==1.3.0
 scikit-learn==1.0.2
 nltk==3.6.2
-
-# PyTorch (install separately to avoid conflicts)
+gunicorn==20.1.0
 --extra-index-url https://download.pytorch.org/whl/torch_stable.html
 torch==1.10.0
-
-# Server
-gunicorn==20.1.0
