@@ -1,8 +1,9 @@
 services:
   - type: web
     name: fake-news-detector
-    env: python
+    runtime: python
+    pythonVersion: "3.11.8"  # Explicitly set here instead of runtime.txt
     buildCommand: |
+      python -m pip install --upgrade pip setuptools wheel
       pip install -r requirements.txt
-      python nltk_setup.py
-    startCommand: gunicorn app:app
+    startCommand: gunicorn --workers=2 --threads=4 --bind=0.0.0.0:$PORT app:app
