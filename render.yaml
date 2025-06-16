@@ -2,7 +2,7 @@ services:
   - type: web
     name: fake-news-detector
     runtime: python
-    pythonVersion: "3.11.8"  # Explicitly set here instead of runtime.txt
+    pythonVersion: "3.11.8"
     buildCommand: |
       python -m pip install --upgrade pip setuptools wheel
       pip install -r requirements.txt
