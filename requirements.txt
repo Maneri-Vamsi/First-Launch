@@ -1,18 +1,21 @@
-setuptools==65.5.1
-wheel==0.38.4
+# Core utilities
+setuptools==68.2.2
+wheel==0.42.0
 
-# App and data processing
-Flask==2.2.5
-pandas==1.5.3  # Last version fully compatible with Python 3.10
-numpy==1.21.6  # Required for scikit-learn 1.0.2
+# Web framework
+Flask==3.0.0
 
-# ML libraries
-scikit-learn==1.0.2
-nltk==3.6.2
+# Data processing
+pandas==2.2.0
+numpy==1.26.4
 
-# Model serving
-gunicorn==20.1.0
+# Machine Learning
+scikit-learn==1.4.0
+nltk==3.8.1
 
-# PyTorch (CPU only)
+# Server
+gunicorn==21.2.0
+
+# PyTorch (CPU-only)
 --extra-index-url https://download.pytorch.org/whl/cpu
-torch==1.10.0  # Last version with Python 3.10 support
+torch==2.2.0
