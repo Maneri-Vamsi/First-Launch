@@ -3,8 +3,8 @@ wheel==0.38.4
 
 # App and data processing
 Flask==2.2.5
-pandas==1.5.3  # Oldest available on PyPI (works with your stack)
-numpy==1.21.6  # Required for scikit-learn 1.0.2 compatibility
+pandas==1.5.3  # Last version fully compatible with Python 3.10
+numpy==1.21.6  # Required for scikit-learn 1.0.2
 
 # ML libraries
 scikit-learn==1.0.2
@@ -15,4 +15,4 @@ gunicorn==20.1.0
 
 # PyTorch (CPU only)
 --extra-index-url https://download.pytorch.org/whl/cpu
-torch==1.10.0
+torch==1.10.0  # Last version with Python 3.10 support
