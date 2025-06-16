@@ -1,21 +1,19 @@
 # Build tools
-setuptools==65.5.1
-wheel==0.38.4
+setuptools==69.5.1
+wheel==0.42.0
 
 # App and data processing
-flask==2.0.1
+flask==2.2.5
 pandas==2.2.3
 numpy==2.2.0
 
-
-
 # ML libraries
-scikit-learn==1.0.2
-nltk==3.6.2
+scikit-learn==1.2.2
+nltk==3.8.1
 
 # Model serving
 gunicorn==20.1.0
 
 # PyTorch
---extra-index-url https://download.pytorch.org/whl/torch_stable.html
-torch==1.10.0
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.1.0
