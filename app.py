@@ -53,6 +53,10 @@ def clean_text(text):
 
 # ====================== TRAINING FUNCTION ======================
 def train_and_save_model():
+    if not (os.path.exists("Fake.csv") and os.path.exists("True.csv")):
+        print("❌ Training data not found.")
+        return
+
     print("Training model...")
     df_fake = pd.read_csv("Fake.csv", encoding="utf-8", on_bad_lines="skip").assign(label=0)
     df_real = pd.read_csv("True.csv", encoding="utf-8", on_bad_lines="skip").assign(label=1)
@@ -69,7 +73,7 @@ def train_and_save_model():
     optimizer = optim.Adam(model.parameters(), lr=0.001)
     criterion = nn.CrossEntropyLoss()
 
-    for epoch in range(5):  # Fast training
+    for epoch in range(5):
         model.train()
         optimizer.zero_grad()
         outputs = model(torch.tensor(X_train_vec.toarray(), dtype=torch.float32))
@@ -85,10 +89,14 @@ def train_and_save_model():
 if not (os.path.exists(MODEL_PATH) and os.path.exists(VECTORIZER_PATH)):
     train_and_save_model()
 
-model = NewsClassifier(VOCAB_SIZE)
-model.load_state_dict(torch.load(MODEL_PATH, map_location=torch.device('cpu')))
-model.eval()
-vectorizer = joblib.load(VECTORIZER_PATH)
+if os.path.exists(MODEL_PATH) and os.path.exists(VECTORIZER_PATH):
+    model = NewsClassifier(VOCAB_SIZE)
+    model.load_state_dict(torch.load(MODEL_PATH, map_location=torch.device('cpu')))
+    model.eval()
+    vectorizer = joblib.load(VECTORIZER_PATH)
+else:
+    model = None
+    vectorizer = None
 
 # ====================== HTML TEMPLATE ======================
 HTML_TEMPLATE = '''
@@ -125,6 +133,12 @@ HTML_TEMPLATE = '''
             font-size: 1.2rem;
             font-weight: 500;
         }
+        .footer {
+            margin-top: 30px;
+            text-align: center;
+            color: #666;
+            font-size: 1rem;
+        }
     </style>
 </head>
 <body>
@@ -143,6 +157,9 @@ HTML_TEMPLATE = '''
                 {{ result[0] }} <br>(Confidence: {{ result[1] }}%)
             </div>
         {% endif %}
+        <div class="footer">
+            ☺️ Thanks for choosing me.
+        </div>
     </div>
 </body>
 </html>
@@ -154,7 +171,9 @@ def home():
     result = None
     if request.method == "POST":
         article = request.form.get("article", "").strip()
-        if len(article) < 20:
+        if not model or not vectorizer:
+            result = ("Model not available", 0, "#9E9E9E")
+        elif len(article) < 20:
             result = ("Text too short", 0, "#FF9800")
         else:
             cleaned = clean_text(article[:MAX_TEXT_LENGTH])
