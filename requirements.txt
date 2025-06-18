@@ -3,10 +3,9 @@ pip>=24.0
 wheel==0.45.1
 
 Flask==2.2.5
-pandas==2.2.3
-numpy==1.26.4  # Python 3.12 compatible version
-scipy==1.13.0
-scikit-learn==1.4.2
-torch==2.3.0
+pandas==1.5.3  # Downgraded to stable version
+numpy==1.23.5  # Compatible version
+scikit-learn==1.2.2  # Compatible version
+torch==2.0.1
 nltk==3.8.1
 joblib==1.2.0
