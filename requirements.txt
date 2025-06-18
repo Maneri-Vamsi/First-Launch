@@ -4,8 +4,9 @@ wheel==0.45.1
 
 Flask==2.2.5
 pandas==2.2.3
-numpy==1.26.4  # Fixed version
-scikit-learn==1.4.2  # Updated for Python 3.13 compatibility
-torch==2.0.1
+numpy==1.26.4
+scikit-learn==1.4.2
+# Update Torch to 2.3.0 for Python 3.13 support
+torch==2.3.0
 nltk==3.8.1
 joblib==1.2.0
