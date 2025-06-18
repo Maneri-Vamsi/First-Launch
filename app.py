@@ -157,6 +157,9 @@ HTML_TEMPLATE = '''
                 {{ result[0] }} <br>(Confidence: {{ result[1] }}%)
             </div>
         {% endif %}
+        <div class="text-muted text-center mt-3" style="font-size: 0.9rem;">
+            <em>Note: This model was trained on news data up to 2017. Predictions may not reflect recent trends.</em>
+        </div>
         <div class="footer">
             ☺️ Thanks for choosing me.
         </div>
