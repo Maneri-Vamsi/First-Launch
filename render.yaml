@@ -2,7 +2,7 @@ services:
   - type: web
     name: fake-news-app
     runtime: python
-    pythonVersion: "3.11.9"  # Most stable version for your needs
+    pythonVersion: "3.11.9"  # Must match runtime.txt
     buildCommand: |
       python -m pip install --upgrade pip
       python -m pip install setuptools==69.0.0 wheel==0.45.1
