@@ -2,7 +2,7 @@ services:
   - type: web
     name: fake-news-app
     runtime: python
-    pythonVersion: "3.11.9"  # Explicit version matching runtime.txt
+    pythonVersion: "3.11.9"  # Match your runtime.txt
     buildCommand: |
       chmod +x postinstall.sh
       ./postinstall.sh
