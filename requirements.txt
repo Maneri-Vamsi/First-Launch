@@ -10,3 +10,4 @@ scikit-learn==1.2.2  # Compatible version
 torch==2.0.1
 nltk==3.8.1
 joblib==1.2.0
+ 
