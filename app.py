@@ -1,83 +1,71 @@
-from flask import Flask, request, render_template_string
-import joblib
-import os
-import pandas as pd
-import re
-import nltk
+from flask import Flask, request, jsonify, render_template_string
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.linear_model import PassiveAggressiveClassifier
-
-nltk.download('stopwords')
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
+import pandas as pd
+import nltk
 from nltk.corpus import stopwords
+import os
 
-app = Flask(__name__)
+nltk.download("stopwords")
+STOPWORDS = set(stopwords.words("english"))
 
-# File paths
-MODEL_PATH = "model.joblib"
-VECTORIZER_PATH = "vectorizer.joblib"
+# Load and prepare data
+fake_df = pd.read_csv("Fake.csv")
+true_df = pd.read_csv("True.csv")
+
+fake_df["label"] = 0
+true_df["label"] = 1
+
+data = pd.concat([fake_df, true_df]).sample(frac=1).reset_index(drop=True)
+X = data["text"]
+y = data["label"]
 
 # Preprocessing
 def clean_text(text):
-    text = re.sub(r"\W", " ", text)
-    text = text.lower()
-    text = re.sub(r"\s+[a-zA-Z]\s+", " ", text)
-    text = re.sub(r"^[a-zA-Z]\s+", " ", text)
-    text = re.sub(r"\s+", " ", text)
-    return text
+    return " ".join([word for word in text.lower().split() if word not in STOPWORDS])
 
-# Train the model if not already trained
-if not os.path.exists(MODEL_PATH) or not os.path.exists(VECTORIZER_PATH):
-    # Load dataset
-    df_fake = pd.read_csv("Fake.csv")
-    df_true = pd.read_csv("True.csv")
-    df_fake["label"] = 0
-    df_true["label"] = 1
-    data = pd.concat([df_fake, df_true], axis=0)
-    data = data[["text", "label"]]
-    data["text"] = data["text"].apply(clean_text)
+X_cleaned = X.apply(clean_text)
 
-    # Train vectorizer and model
-    vectorizer = TfidfVectorizer(stop_words=stopwords.words("english"), max_df=0.7)
-    X = vectorizer.fit_transform(data["text"])
-    y = data["label"]
+# Vectorization
+vectorizer = TfidfVectorizer(max_features=5000)
+X_vect = vectorizer.fit_transform(X_cleaned)
 
-    model = PassiveAggressiveClassifier()
-    model.fit(X, y)
+# Model
+model = LogisticRegression()
+model.fit(X_vect, y)
 
-    joblib.dump(model, MODEL_PATH)
-    joblib.dump(vectorizer, VECTORIZER_PATH)
-else:
-    model = joblib.load(MODEL_PATH)
-    vectorizer = joblib.load(VECTORIZER_PATH)
+# Flask App
+app = Flask(__name__)
 
-# HTML template
 HTML_TEMPLATE = '''
 <!DOCTYPE html>
 <html>
 <head><title>Fake News Detector</title></head>
 <body>
-    <h2>Fake News Detector</h2>
-    <form method="post">
-        <textarea name="news" rows="10" cols="70" placeholder="Enter news text here..." required></textarea><br><br>
+    <h2>Enter News Text</h2>
+    <form method="POST">
+        <textarea name="news" rows="10" cols="60"></textarea><br><br>
         <input type="submit" value="Check">
     </form>
     {% if prediction is not none %}
-        <h3>Prediction: {{ prediction }}</h3>
+        <h3>Prediction: {{ 'Real' if prediction == 1 else 'Fake' }}</h3>
     {% endif %}
 </body>
 </html>
 '''
 
 @app.route("/", methods=["GET", "POST"])
-def home():
+def index():
     prediction = None
     if request.method == "POST":
         news = request.form["news"]
         cleaned = clean_text(news)
         vect = vectorizer.transform([cleaned])
-        pred = model.predict(vect)[0]
-        prediction = "Real News 📰" if pred == 1 else "Fake News 🚫"
+        prediction = model.predict(vect)[0]
     return render_template_string(HTML_TEMPLATE, prediction=prediction)
 
+# Important: Bind to the PORT environment variable for Render
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=10000)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
