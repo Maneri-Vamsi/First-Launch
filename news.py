@@ -1,45 +1,72 @@
 from flask import Flask, request, render_template_string
 import pandas as pd
 import nltk
+import string
+import re
+import os
+import joblib
+
 from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
-import joblib
-import os
+from sklearn.metrics import classification_report, confusion_matrix
 
-# Download stopwords if not already downloaded
 nltk.download('stopwords')
-from nltk.corpus import stopwords
+nltk.download('wordnet')
 
-# Initialize Flask app
+from nltk.corpus import stopwords
+from nltk.stem import WordNetLemmatizer
+
 app = Flask(__name__)
 
-# Check if model/vectorizer exist, else train and save
+stop_words = set(stopwords.words('english')) - {'no', 'nor', 'not', 'against'}
+
+def clean_text(text):
+    lemmatizer = WordNetLemmatizer()
+    text = text.lower()
+    text = re.sub(r"http\S+|www\S+|https\S+", '', text)
+    text = re.sub(r'\d+', '', text)
+    text = text.translate(str.maketrans('', '', string.punctuation))
+    words = text.split()
+    cleaned = [lemmatizer.lemmatize(word) for word in words if word not in stop_words]
+    return ' '.join(cleaned)
+
 if not os.path.exists("model.pkl") or not os.path.exists("vectorizer.pkl"):
     fake = pd.read_csv("Fake.csv")
     true = pd.read_csv("True.csv")
-
     fake['label'] = 0
     true['label'] = 1
 
-    data = pd.concat([fake[['text', 'label']], true[['text', 'label']]], axis=0)
+    min_len = min(len(fake), len(true))
+    fake = fake.sample(min_len, random_state=42)
+    true = true.sample(min_len, random_state=42)
+    data = pd.concat([fake[['text', 'label']], true[['text', 'label']]])
+    data = data.sample(frac=1, random_state=42)
+
+    data['text'] = data['text'].apply(clean_text)
     X = data['text']
     y = data['label']
 
-    vectorizer = TfidfVectorizer(stop_words=stopwords.words('english'), max_df=0.7)
+    vectorizer = TfidfVectorizer(max_df=0.7, max_features=5000)
     X_vec = vectorizer.fit_transform(X)
 
-    model = LogisticRegression()
-    model.fit(X_vec, y)
+    X_train, X_test, y_train, y_test = train_test_split(X_vec, y, test_size=0.2, random_state=42)
 
+    model = LogisticRegression(max_iter=300)
+    model.fit(X_train, y_train)
+
+    print("=== Confusion Matrix ===")
+    print(confusion_matrix(y_test, model.predict(X_test)))
+    print("=== Classification Report ===")
+    print(classification_report(y_test, model.predict(X_test)))
+
+    model.fit(X_vec, y)
     joblib.dump(model, "model.pkl")
     joblib.dump(vectorizer, "vectorizer.pkl")
 
-# Load model and vectorizer
 model = joblib.load("model.pkl")
 vectorizer = joblib.load("vectorizer.pkl")
 
-# HTML Template
 template = """
 <!doctype html>
 <html>
@@ -119,7 +146,7 @@ template = """
         {% if prediction is not none %}
             <div class="result">
                 Prediction: 
-                <span style="color: {{ 'red' if prediction == 'Fake' else 'green' }}">{{ prediction }}</span>
+                <span style="color: {{ 'red' if 'Fake' in prediction else 'green' }}">{{ prediction }}</span>
             </div>
         {% endif %}
         <div class="footer">
@@ -135,12 +162,13 @@ def index():
     prediction = None
     if request.method == "POST":
         text = request.form["news"]
-        vect_text = vectorizer.transform([text])
-        pred = model.predict(vect_text)[0]
-        prediction = "Real" if pred == 1 else "Fake"
+        cleaned = clean_text(text)
+        vect = vectorizer.transform([cleaned])
+        pred = model.predict(vect)[0]
+        prob = model.predict_proba(vect)[0][pred]
+        prediction = f"{'Real' if pred == 1 else 'Fake'} ({prob*100:.2f}%)"
     return render_template_string(template, prediction=prediction)
 
-# Required for Render deployment
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
